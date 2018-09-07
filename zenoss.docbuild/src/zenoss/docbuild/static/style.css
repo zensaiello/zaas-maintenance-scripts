@@ -1,0 +1,37 @@
+:root {
+    --logo-width: 175px;
+    --logo-height: 70px;
+}
+BODY {
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+}
+H1#header {
+    margin: 0;
+    background: black url("/static/logo.png") no-repeat left top;
+    color: white;
+    padding: 0 0 0 var(--logo-width);
+    height: var(--logo-height);
+    line-height: var(--logo-height);
+}
+DIV#content {
+    padding: 1em;
+    width: 800px;
+}
+DIV#repoList {
+    display: none;
+    position: absolute;
+    top: 0;
+    left: 0;
+    background-color: azure;
+    color: dimgray;
+    border: 1px solid darkgray;
+}
+DIV.repo {
+    font-size: 80%;
+    cursor: hand;
+}
+DIV#content, INPUT, SELECT {
+    font-size: 12pt;
+}

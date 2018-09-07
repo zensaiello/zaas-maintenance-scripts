@@ -1,0 +1,92 @@
+2016-08-04 22:23:39,326 DEBUG zen.zenpython: Starting PBDaemon initialization
+2016-08-04 22:23:39,326 INFO zen.zenpython: Connecting to localhost:8789
+2016-08-04 22:23:39,327 DEBUG zen.pbclientfactory: Starting connection...
+2016-08-04 22:23:39,327 DEBUG zen.zenpython: Logging in as admin
+2016-08-04 22:23:39,329 DEBUG zen.pbclientfactory: Connected
+2016-08-04 22:23:39,329 DEBUG zen.pbclientfactory: Cancelling connect timeout
+2016-08-04 22:23:39,329 DEBUG zen.pbclientfactory: Sending credentials
+2016-08-04 22:23:39,332 DEBUG zen.pbclientfactory: Cancelling connect timeout
+2016-08-04 22:23:39,332 INFO zen.zenpython: Connected to ZenHub
+2016-08-04 22:23:39,332 DEBUG zen.zenpython: Setting up initial services: EventService, ZenPacks.zenoss.PythonCollector.services.PythonConfig
+2016-08-04 22:23:39,333 DEBUG zen.zenpython: Chaining getInitialServices with d2
+2016-08-04 22:23:39,333 DEBUG zen.pbclientfactory: pinging perspective
+2016-08-04 22:23:39,336 DEBUG zen.zenpython: Loaded service EventService from zenhub
+2016-08-04 22:23:39,336 DEBUG zen.zenpython: Loaded service ZenPacks.zenoss.PythonCollector.services.PythonConfig from zenhub
+2016-08-04 22:23:39,336 DEBUG zen.zenpython: Queued event (total of 1) {'rcvtime': 1470363819.336592, 'severity': 0, 'component': 'zenpython', 'agent': 'zenpython', 'summary': 'started', 'manager': 'sma-dev04.zenoss.lab', 'device': 'localhost', 'eventClass': '/App/Start', 'monitor': 'localhost'}
+2016-08-04 22:23:39,337 DEBUG zen.zenpython: Sending 1 events, 0 perf events, 0 heartbeats
+2016-08-04 22:23:39,338 DEBUG zen.zenpython: Calling connected.
+2016-08-04 22:23:39,338 DEBUG zen.collector.config: Heartbeat timeout set to 900s
+2016-08-04 22:23:39,339 DEBUG zen.collector.scheduler: add task configLoader, <ZenPacks.zenoss.EnterpriseCollector.config.EnterpriseConfigurationLoaderTask object at 0x6972150> using 2592000 second interval
+2016-08-04 22:23:39,339 DEBUG zen.zenpython: Performing periodic maintenance
+2016-08-04 22:23:39,339 DEBUG zen.pbclientfactory: perspective ponged
+2016-08-04 22:23:39,339 DEBUG zen.pbclientfactory: Cancelling ping timeout
+2016-08-04 22:23:39,340 DEBUG zen.collector.scheduler: Task configLoader starting (waited 0 seconds) on 2592000 second intervals
+2016-08-04 22:23:39,340 DEBUG zen.collector.scheduler: Task configLoader changing state from IDLE to QUEUED
+2016-08-04 22:23:39,341 DEBUG zen.collector.scheduler: Task configLoader changing state from QUEUED to RUNNING
+2016-08-04 22:23:39,341 DEBUG zen.collector.config: configLoader gathering configuration
+2016-08-04 22:23:39,342 DEBUG zen.collector.config: Fetching daemon configuration properties
+2016-08-04 22:23:39,364 DEBUG zen.EnterpriseCollector.config: Caching configuration data into /opt/zenoss/perf/Daemons/localhost/zenpython-properties.pickle
+2016-08-04 22:23:39,365 DEBUG zen.collector.scheduler: Task configLoader changing state from RUNNING to FETCHING_MISC_CONFIG
+2016-08-04 22:23:39,366 DEBUG zen.zenpython: Updated configCycleInterval preference to 360
+2016-08-04 22:23:39,366 DEBUG zen.zenpython: Changing config task interval from 43200 to 360 minutes
+2016-08-04 22:23:39,366 DEBUG zen.collector.scheduler: Stopping task configLoader, <ZenPacks.zenoss.EnterpriseCollector.config.EnterpriseConfigurationLoaderTask object at 0x6972150>
+2016-08-04 22:23:39,366 DEBUG zen.collector.scheduler: call finished LoopingCall<2592000>(CallableTask: configLoader, *(), **{}) : LoopingCall<2592000>(CallableTask: configLoader, *(), **{})
+2016-08-04 22:23:39,367 INFO zen.collector.scheduler: Detailed Task Statistics:
+configLoader Current State: FETCHING_MISC_CONFIG Successful_Runs: 1 Failed_Runs: 0 Missed_Runs: 0
+
+Detailed Task States:
+configLoader State: RUNNING Total: 1 Total Elapsed: 0.0239 Min: 0.0239 Max: 0.0239 Mean: 0.0239 StdDev: 0.0000
+configLoader State: QUEUED Total: 1 Total Elapsed: 0.0015 Min: 0.0015 Max: 0.0015 Mean: 0.0015 StdDev: 0.0000
+
+
+2016-08-04 22:23:39,367 DEBUG zen.collector.config: Heartbeat timeout set to 900s
+2016-08-04 22:23:39,367 DEBUG zen.collector.scheduler: add task configLoader, <ZenPacks.zenoss.EnterpriseCollector.config.EnterpriseConfigurationLoaderTask object at 0x6997a10> using 21600 second interval
+2016-08-04 22:23:39,368 DEBUG zen.collector.config: Fetching threshold classes
+2016-08-04 22:23:39,390 DEBUG zen.EnterpriseCollector.config: Caching configuration data into /opt/zenoss/perf/Daemons/localhost/zenpython-threshold-classes.pickle
+2016-08-04 22:23:39,390 DEBUG zen.zenpython: Loading classes ['Products.ZenModel.MinMaxThreshold', 'Products.ZenModel.ValueChangeThreshold', 'ZenPacks.zenoss.CiscoMonitor.thresholds.StatusThreshold', 'ZenPacks.zenoss.ZenHoltWinters.thresholds.HoltWintersFailure']
+2016-08-04 22:23:39,392 DEBUG zen.collector.config: Fetching collector thresholds
+2016-08-04 22:23:39,451 DEBUG zen.EnterpriseCollector.config: Caching configuration data into /opt/zenoss/perf/Daemons/localhost/zenpython-thresholds.pickle
+2016-08-04 22:23:39,452 DEBUG zen.thresholds: Updating threshold ('high event queue', ('localhost collector', ''))
+2016-08-04 22:23:39,452 DEBUG zen.thresholds: Updating threshold ('zenmodeler cycle time', ('localhost collector', ''))
+2016-08-04 22:23:39,453 DEBUG zen.collector.config: Fetching configurations
+2016-08-04 22:23:39,484 DEBUG zen.zenpython: updateDeviceConfigs: updatedConfigs=['tester1']
+2016-08-04 22:23:39,484 DEBUG zen.zenpython: Processing configuration for tester1
+2016-08-04 22:23:39,484 DEBUG zen.daemon: DummyListener: configuration tester1 added
+2016-08-04 22:23:39,484 DEBUG zen.collector.tasks: Splitting config tester1
+2016-08-04 22:23:39,485 DEBUG zen.zenpython: Tasks for config tester1: {'tester1 60 zenPyBlock': <__main__.PythonCollectionTask object at 0x56ab410>}
+2016-08-04 22:23:39,485 DEBUG zen.collector.scheduler: add task tester1 60 zenPyBlock, <__main__.PythonCollectionTask object at 0x56ab410> using 60 second interval
+2016-08-04 22:23:39,486 DEBUG zen.collector.scheduler: Task tester1 60 zenPyBlock starting (waited 0 seconds) on 60 second intervals
+2016-08-04 22:23:39,486 DEBUG zen.collector.scheduler: Task tester1 60 zenPyBlock changing state from IDLE to QUEUED
+2016-08-04 22:23:39,486 DEBUG zen.zenpython: purgeOmittedDevices: deletedConfigs=
+2016-08-04 22:23:39,487 DEBUG zen.collector.scheduler: Task configLoader finished, result: 'Configuration loaded'
+2016-08-04 22:23:39,487 DEBUG zen.collector.scheduler: Task tester1 60 zenPyBlock changing state from QUEUED to RUNNING
+2016-08-04 22:23:39,488 DEBUG zen.collector.scheduler: Task tester1 60 zenPyBlock finished, result: None
+2016-08-04 22:23:39,488 DEBUG zen.collector.scheduler: Task tester1 60 zenPyBlock changing state from RUNNING to IDLE
+2016-08-04 22:23:39,488 INFO zen.zenpython: 1 devices processed (0 datapoints)
+2016-08-04 22:23:39,488 INFO zen.collector.scheduler: Tasks: 2 Successful_Runs: 1 Failed_Runs: 0 Missed_Runs: 0 Queued_Tasks: 0 Running_Tasks: 1 
+2016-08-04 22:23:39,489 DEBUG zen.collector.scheduler: In shutdown stage before
+2016-08-04 22:23:39,489 DEBUG zen.collector.scheduler: In shutdown stage before
+2016-08-04 22:23:39,489 DEBUG zen.collector.scheduler: Stopping running task tester1 60 zenPyBlock
+2016-08-04 22:23:39,489 DEBUG zen.collector.scheduler: call finished LoopingCall<60>(CallableTask: tester1 60 zenPyBlock, *(), **{}) : LoopingCall<60>(CallableTask: tester1 60 zenPyBlock, *(), **{})
+2016-08-04 22:23:39,490 DEBUG zen.collector.scheduler: Removing task tester1 60 zenPyBlock
+2016-08-04 22:23:39,490 DEBUG zen.collector.scheduler: Removing task configLoader
+2016-08-04 22:23:39,490 DEBUG zen.collector.scheduler: tasks to clean KeyedSet([<__main__.PythonCollectionTask object at 0x56ab410>, <ZenPacks.zenoss.EnterpriseCollector.config.EnterpriseConfigurationLoaderTask object at 0x6972150>, <ZenPacks.zenoss.EnterpriseCollector.config.EnterpriseConfigurationLoaderTask object at 0x6997a10>])
+2016-08-04 22:23:39,490 DEBUG zen.collector.scheduler: Cleanup on task tester1 60 zenPyBlock <__main__.PythonCollectionTask object at 0x56ab410>
+2016-08-04 22:23:39,490 DEBUG zen.collector.scheduler: Scheduler._cleanupTaskComplete: result=None task.name=tester1 60 zenPyBlock
+2016-08-04 22:23:39,491 DEBUG zen.collector.scheduler: Cleanup on task configLoader <ZenPacks.zenoss.EnterpriseCollector.config.EnterpriseConfigurationLoaderTask object at 0x6972150>
+2016-08-04 22:23:39,491 DEBUG zen.collector.scheduler: Scheduler._cleanupTaskComplete: result=None task.name=configLoader
+2016-08-04 22:23:39,491 DEBUG zen.collector.scheduler: Cleanup on task configLoader <ZenPacks.zenoss.EnterpriseCollector.config.EnterpriseConfigurationLoaderTask object at 0x6997a10>
+2016-08-04 22:23:39,491 DEBUG zen.collector.scheduler: Scheduler._cleanupTaskComplete: result=None task.name=configLoader
+2016-08-04 22:23:39,491 DEBUG zen.collector.scheduler: In shutdown stage before
+2016-08-04 22:23:39,492 DEBUG zen.zenpython: Tried to stop reactor that was stopped
+2016-08-04 22:23:39,492 INFO zen.zenpython: Daemon CollectorDaemon shutting down
+2016-08-04 22:23:39,494 DEBUG zen.zenpython: Removing service EventService
+2016-08-04 22:23:39,494 DEBUG zen.zenpython: Removing service ZenPacks.zenoss.PythonCollector.services.PythonConfig
+2016-08-04 22:23:39,494 DEBUG zen.pbclientfactory: Lost connection to 127.0.0.1:8789 - [Failure instance: Traceback (failure with no frames): <class 'twisted.internet.error.ConnectionLost'>: Connection to the other side was lost in a non-clean fashion: Connection lost.
+]
+2016-08-04 22:23:39,495 DEBUG zen.collector.scheduler: In shutdown stage during
+2016-08-04 22:23:39,495 DEBUG zen.collector.scheduler: In shutdown stage during
+2016-08-04 22:23:39,495 DEBUG zen.collector.scheduler: In shutdown stage during
+2016-08-04 22:23:39,495 DEBUG zen.collector.scheduler: In shutdown stage after
+2016-08-04 22:23:39,495 DEBUG zen.collector.scheduler: In shutdown stage after
+2016-08-04 22:23:39,495 DEBUG zen.collector.scheduler: In shutdown stage after

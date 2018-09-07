@@ -1,0 +1,2 @@
+creates a zenpython datasource that sleeps, basically causing a block. Will use the value of 'zStatusConnectTimeout' for the sleep value. So can control when blocking happens or does not. Can change in the webUI or via API:
+. json_api.sh; zenoss_api properties_router PropertiesRouter setZenProperty '{"uid":"/zport/dmd/Devices/Server/Linux/blockingTesting/devices/keebler", "zProperty": "zStatusConnectTimeout", "value": 60.0 }'

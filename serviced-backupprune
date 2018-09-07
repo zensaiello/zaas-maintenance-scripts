@@ -1,0 +1,53 @@
+#!/bin/sh
+# Prune backups
+
+# Set the backup path base on /etc/default/serviced override/default
+SERVICED_BACKUPS_PATH=$(grep "^SERVICED_BACKUPS_PATH" /etc/default/serviced | sed 's/^.*=//')
+if [ $SERVICED_BACKUPS_PATH == ""]; then
+   SERVICED_BACKUPS_PATH=$(grep "^#.*SERVICED_BACKUPS_PATH" /etc/default/serviced | sed 's/^.*=//')
+fi;
+echo Using Backup path of $SERVICED_BACKUPS_PATH
+
+# Goal of this script is to prune the backup directory so that all of the following are true:
+# 1. We never end up creating a state where we end up with no backup.
+# 2. It is always possible to take a backup. If the size of the last back plus 20% doesn't
+#    fit on disk, go delete an old one, and keep deleting until we have enough space or #1 applies
+
+# Loop until we have enough space for a backup, or we have pruned to minimum of only one backup
+while true
+do
+   # Count number of backups
+   NUM_BACKUPS=$(find $SERVICED_BACKUPS_PATH -maxdepth 1 -type f -name backup-*.tgz |  wc -l)
+
+   # If number of backups 1 or less exit since we will never delete the only backup
+   if [ $NUM_BACKUPS -lt 2 ]; then
+     echo "Didn't find any more backups eligible for deletion"
+     exit
+   fi;
+
+   echo Found $NUM_BACKUPS backup files
+
+   K_FREE=$(df -k -P $SERVICED_BACKUPS_PATH | tail -1 | awk {'print $4'})
+   BYTES_FREE=$(awk -vk=$K_FREE -vb=1024 'BEGIN{printf "%.0f", k * b}')
+   echo Amount of space free on $SERVICED_BACKUPS_PATH is $BYTES_FREE bytes
+
+   SIZE_OF_LATEST_BACKUP=$(ls -lt $SERVICED_BACKUPS_PATH/backup*.tgz | head -1 | awk {'print $5'})
+   echo Size of latest backup is $SIZE_OF_LATEST_BACKUP bytes
+
+   # Add a percent to size of last backup file, to estimate size of next one
+   EXTRA_PERCENT="1.2"
+   ESTIMATED_SIZE=$(awk -vs=$SIZE_OF_LATEST_BACKUP -vp=$EXTRA_PERCENT 'BEGIN{printf "%.0f", s * p}')
+   echo Estimated next backup size is $ESTIMATED_SIZE
+
+   if [ $ESTIMATED_SIZE -lt $BYTES_FREE ]; then
+      echo "We likely have enough space to take another backup. No need for pruning"
+      exit
+   fi;
+
+   # delete the oldest backup and then go round the loop again
+   OLDEST_BACKUP=$(ls -lrt $SERVICED_BACKUPS_PATH/backup*.tgz | head -1 | awk {'print $9'})
+   echo Pruning old backup $OLDEST_BACKUP
+   rm -f $OLDEST_BACKUP
+
+done
+
