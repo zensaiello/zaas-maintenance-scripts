@@ -1,0 +1,136 @@
+<html>
+    <head>
+        <title>ZenPack Documentation Builder</title>
+    </head>
+    <link rel="stylesheet" type="text/css" href="/static/style.css" />
+    <script type="text/javascript">
+        var oldRepoValue = "",
+            repoListEl,
+            repoEl;
+
+        function checkRepoValue() {
+            var newValue = repoEl.value.trim();
+
+            if (document.activeElement != repoEl) {
+                hideRepoList();
+            }
+            else if (oldRepoValue == newValue) {
+                showRepoList();
+            }
+
+            if (newValue.length >= 2 && oldRepoValue != newValue) {
+                var xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = function () {
+                    if (
+                            xhr.readyState === XMLHttpRequest.DONE && 
+                            xhr.status === 200 &&
+                            newValue == repoEl.value // If changed when we initiated this request, ignore it
+                    ) {
+                            populateRepoList(eval(xhr.responseText));
+                    }
+                    else if (xhr.status == 401) {
+                        window.location.reload();
+                    }
+                };
+                xhr.open("GET", "/getRepos?query=" + newValue);
+                xhr.send();
+                oldRepoValue = newValue;
+            }
+        }
+
+        function setup() {
+            var widthPadding = 0;
+            repoListEl = document.getElementById("repoList"),
+            repoEl = document.getElementById("repo");
+            repoListEl.style.left = repoEl.offsetLeft;
+            repoListEl.style.top = repoEl.offsetTop + repoEl.offsetHeight;
+            ["marginLeft", "marginRight", "borderLeft", "borderRight"].forEach(function (property) {
+                widthPadding += repoListEl.style[property];
+            });
+            repoListEl.style.width = repoEl.offsetWidth - widthPadding;
+        }
+
+        function showRepoList() {
+            repoListEl.style.display = "block";
+        }
+
+        function hideRepoList() {
+            if (repoListEl.style.display != "none") {
+                repoListEl.style.display = "none";
+            }
+        }
+
+        function populateRepoList(repos) {
+            repoListEl.innerHTML = "";
+            repos.forEach(function (repo) {
+                var el = document.createElement("div");
+                el.className = "repo";
+                el.innerText = repo;
+                el.onclick = repoClicked;
+                repoListEl.appendChild(el);
+            });
+            if (repos) {
+                showRepoList();
+            }
+        }
+    
+        function repoClicked(event) {
+            var value = event.srcElement.innerText;
+
+            repoEl.value = value;
+            oldRepoValue = value;
+            hideRepoList();
+        }
+
+        window.addEventListener("load", setup);
+        window.setInterval(checkRepoValue, 1000);
+    </script>
+    <body>
+        <h1 id="header">ZenPack Documentation Builder</h1> 
+        <div id="content">
+            <p>
+                This tool generates documentation for ZenPacks based on having
+                <samp>README.rst</samp> and <samp>zenpack.yaml</samp>
+                retrievable from GitHub. A GitHub account with access to the
+                repository representing the ZenPack documentation is desired
+                for is required.
+            </p>
+            <p>
+                Tips:
+                <ul>
+                    <li>Search terms should be the beginning of words. E.g.,
+                    <samp>EMCX</samp> will match
+                    <samp>ZenPacks.zenoss.PS.EMCXtremeIO</samp>, but
+                    <samp>XtremeIO</samp> will not.</li>
+                    <li>If you do not see the ZenPack you want documentation
+                    for, make sure you have access to it on <a
+                    href="https://github.com/orgs/zenoss">GitHub</a>.</li>
+                    <li>Documention is created in OpenDocument format. They can
+                    be opened with Microsoft Word, but not edited.</li>
+                </ul>
+            </p>
+            <hr/>
+            <form action="/build" method="get">
+                <label for="repo">GitHub Repostiroty:</label>
+                <input size="75" type="text" id="repo" name="repo" autocomplete="off" />
+                <br/><br/>
+                <label for="branch">Branch:</label>
+                <select name="branch">
+                    <option>master</option>
+                    <option>develop</option>
+                </select>
+                <br/><br/>
+                <label for="fileformat">File Format:</label>
+                <select name="fileformat">
+                    <option value="odt">odf_odt</option>
+                    <option value="pdf">PDF</option>
+                    <option value="docx">Word</option>
+                </select>
+                <br/><br/>
+                <input type="submit" value="Generate"/>
+            </form>
+            <div id="repoList"></div>
+        </div>
+    </body>
+</html>
+

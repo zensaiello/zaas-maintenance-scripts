@@ -1,0 +1,25 @@
+name: ZenPacks.debug.zenPyBlock
+
+device_classes:
+  /Server:
+
+    templates:
+      zenPyBlock:
+        description: a controled way to test & debug zenpython blocking
+
+        datasources:
+          zenPyBlocker:
+            type: Python
+            plugin_classname: ZenPacks.debug.zenPyBlock.dsplugins.zenPyBlock
+            cycletime: "60"
+            datapoints:
+              blkMetric:
+                description: Test metric
+                rrdtype: GAUGE
+
+        graphs:
+          TestMetricData:
+            units: stuff
+            graphpoints:
+              MetricData:
+                dpName: zenPyBlocker_blkMetric

@@ -1,0 +1,301 @@
+############################
+#
+# Copyright 2018 Zenoss Inc
+#
+############################
+
+import logging
+
+# convert to python module and use ZenCMDBase
+# refactor, more functions, make it more readable
+# add comments
+# add option to stop filter of disabled datasources
+
+
+from requests import post
+import re
+import json
+import time
+from collections import Counter, defaultdict
+from datetime import datetime
+from Products.Zuul.interfaces import IAuthorizationTool
+import argparse
+import sys
+
+TIMEUNITS = {'m':1, 'h':60, 'd':1440}
+
+newargs = ['gap_check.dmd']
+if len(sys.argv) > 3:
+    newargs += sys.argv[4:]
+sys.argv = newargs
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-d", "--dev_regex", type=str, help="devices to be queried must match this regex", default=".*")
+parser.add_argument("-s", "--save_metrics", type=str, help="filename in which to save built metrics", default="")
+parser.add_argument("-m", "--metrics", type=str, help="filename from which to load metrics.  Specifying this option will ignore all device/datapoint filtering", default="")
+parser.add_argument("-o", "--output", type=str, help="filename to where output will be written", default="")
+parser.add_argument("-p", "--dp_regex", type=str, help="datapoints to be queried must match this regex", default=".*")
+parser.add_argument("-b", "--downsample", type=str, help="bucket size for counting datapoints. NOTE: OTSDB does not work well with some values for downsample size especially if they do not divide evenly into the time range and returns empty successul results.  Avoid using prime numbers", default="1h")
+parser.add_argument("-l", "--limit", type=int, help="minimum difference of a bucket's dp count from the mode of the buckets to be considered an issue", default=2)
+parser.add_argument("-t", "--timespan", type=str, help="timespan over which to look for metrics", default="1d")
+parser.add_argument("-v", "--loglevel", type=int, help="python logging level", default=logging.INFO)
+parser.add_argument("-n", "--alert_if_dp_has_never_collected", dest="alertOnNotExists", action="store_true", default=False, help="Display alerts for datapoints that have never been collected and thus do not exist in OTSDB at all")
+parser.add_argument("-q", "--quiet", dest="quiet", action="store_true", default=False, help="Do not emit warning and violation messages")
+parser.add_argument("-c", "--chunkqueries", dest="chunksize", type=int, default=1000, help="Limit individual query requests to this many metrics")
+parser.add_argument("-z", "--csv_output", dest="csv_output", type=str, default="", help="Filename in which to store csv output")
+parser.add_argument("--minprodstate", dest="minprodstate", type=int, default=300, help="Limit devices queried to those with at least this prodstate")
+parser.add_argument("--cycletime", dest="cycletime", action='append', default=[], help="Acceptable cycle time to use to calculate nearest mode value for bucket datapoint counts")
+
+args = parser.parse_args()
+
+rootlog = logging.getLogger('')
+ch = logging.StreamHandler()
+ch.setLevel(args.loglevel)
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(name)s: %(message)s')
+ch.setFormatter(formatter)
+log = logging.getLogger('gap_check')
+log.setLevel(args.loglevel)
+log.addHandler(ch)
+log.propagate = False
+
+if args.output:
+    ch = logging.FileHandler(args.output)
+    ch.setLevel(args.loglevel)
+    ch.setFormatter(formatter)
+    log.addHandler(ch)
+
+# for pretty printing of timestamps
+def tsToString(timestamp):
+    return datetime.fromtimestamp(float(timestamp)).strftime('%Y-%m-%d %H:%M:%S')
+
+# build metric list for device
+def buildMetrics(devlist, dp_regex):
+    metrics=set()
+    templateDatapoints = {}
+    collectors = {}
+    for dev in devlist:
+        def getCachedObjMetrics(obj):
+            objdps = set()
+            for template in obj.getRRDTemplates():
+                templatePath = template.getPrimaryId()
+                if templatePath not in templateDatapoints:
+                    # cache the datapoints so we don't have to look them up each time we hit this template
+                    datapoints = set()
+                    for datasource in template.datasources():
+                        if datasource.enabled:
+                            datapoints.update([datapoint.name() for datapoint in datasource.datapoints() if re.search(dp_regex, datapoint.name())])
+                    templateDatapoints[templatePath] = datapoints
+                objdps.update(["{}/{}".format(dev.id, dpname) for dpname in templateDatapoints[templatePath]])
+            return objdps
+        collectors[dev.id] = dev.getPerformanceServerName()
+        metrics.update(getCachedObjMetrics(dev))
+        for comp in dev.getDeviceComponents():
+            metrics.update(getCachedObjMetrics(comp))
+    log.debug("metrics: %r", metrics)
+    return (list(metrics), collectors)
+
+def buildQueries(metrics, downsample):
+    queries = [{"metric":metric,
+                 "downsample":"{}-count-zero".format(downsample),
+                 "rate":"false",
+                 "aggregator":"avg",
+                 "tags":{"key":["*"]}} for metric in metrics]
+    log.debug("queries: %r", queries)
+    return queries
+
+def processResults(results, queries, limit, modes):
+    notExists = []
+    noData = []
+    noRecent = []
+    violations = defaultdict(dict)
+    if results.status_code != 200:
+        print results.reason
+    else:
+        resultsjson = results.json()
+        statuses = resultsjson.get('statuses', [])
+        serieses = resultsjson.get('series', [])
+        for index in xrange(len(statuses)):
+            status = statuses[index]
+            try:
+                metric = queries[index]['metric']
+            except IndexError:
+                log.critical("Status response has no associated query")
+                metric = "--Unknown--"
+            except KeyError:
+                log.critical("Query for status response has no metric")
+                metric = "--Unknown--"
+            if status.get('status') != 'SUCCESS':
+                if "No such name for" in status.get('message', ''):
+                    notExists.append(metric)
+                    continue
+                if "query was successful, but no data was returned" in status.get('message', ''):
+                    noData.append(metric)
+                    continue
+                log.critical("A query ({}) failed with {status}: {message}".format(metric, **status))
+        for series in serieses:
+            # datapoints returned are in the form [(timestamp, value),...]
+            metric = series.get('metric')
+            key = series.get('tags',{}).get('key')
+            dps = series.get('datapoints')
+            if not dps:
+                log.critical("Got a successful status, but got no datapoints, something is wrong! (maybe your downsample size was prime or not a divisor of the timespan?)")
+                log.debug(series)
+                continue
+            log.debug("last bucket started at %s", tsToString(dps[-1][0]))
+            # FIXME.  make it readable
+            if dps[-1][1] == 0.0:
+                noRecent.append("{}|{}".format(metric, key))
+            vals=[dp[1] for dp in dps]
+            mode = Counter(vals).most_common()[0][0]
+            maxval = max(vals)
+            if (maxval - mode) > 1:
+                mode = maxval
+            newmode = min(modes, key=lambda x:abs(mode-x))
+            if mode != newmode:
+               log.error("{}|{} had mode {}, replacing it with closest mode {}".format(metric, key, mode, newmode))
+               mode = newmode
+            datapointsInViolation = [dp for dp in dps if abs(dp[1] - mode) > limit]
+            if datapointsInViolation:
+                violations[metric][key] = (datapointsInViolation, mode)
+    return (notExists, noData, noRecent, violations)
+
+#process command-line arguments
+creds = IAuthorizationTool(None).extractGlobalConfCredentials()
+downsample = args.downsample
+limit = args.limit
+dev_regex = args.dev_regex
+dp_regex = args.dp_regex
+cycletime = args.cycletime or [300, 600]
+
+timespec_regex = r'(\d+)([hmd])$'
+
+regres = re.match(timespec_regex, downsample)
+if not regres:
+    log.critical("downsample must be of the form nT where n is one or more  numeric digits and T is the letter m, h for d.  Eg. 15m for 15 minutes, 2h for 2 hours or 1d for 1 day")
+    exit(1)
+
+(dsnum, dsunit) = regres.groups()
+downsampleMinutes = int(dsnum) * TIMEUNITS[dsunit]
+
+regres = re.match(timespec_regex, args.timespan)
+if not regres:
+    log.critical("timespan must be of the form nT where n is one or more  numeric digits and T is the letter m, h for d.  Eg. 15m for 15 minutes, 2h for 2 hours or 1d for 1 day")
+    exit(1)
+
+(tsnum, tsunit) = regres.groups()
+timespanMinutes = int(tsnum) * TIMEUNITS[tsunit]
+
+log.debug("%r %r %r %r", downsampleMinutes,(dsnum, dsunit),timespanMinutes,(tsnum, tsunit))
+
+modes = []
+for seconds in cycletime:
+    if seconds != "0":
+        modes.append((downsampleMinutes*60)/int(seconds))
+    else:
+        modes.append(0)
+
+# FIXME: find out if returned timestamp is start, end or middle of bucket
+# and then rewrite this crap to give them most recent useful buckets
+
+numBuckets = float(timespanMinutes) / float(downsampleMinutes)
+if numBuckets != int(numBuckets):
+  timespanMinutes = (int(numBuckets)+1) * downsampleMinutes
+
+timespan = 60 * timespanMinutes
+
+headers = {'content-type': 'application/json'}
+URL = 'http://{login}:{password}@127.0.0.1:8080/api/performance/query2'.format(**creds)   # in container (zenhub)
+
+timerStart = time.time()
+devlist = [dev for dev in dmd.Devices.getSubDevices() if re.search(dev_regex, dev.id) and dev.getProductionState() > args.minprodstate]
+numDevs = len(devlist)
+
+if args.metrics:
+    fp = open(args.metrics, "r")
+    metrics, collectors =  json.load(fp)
+    fp.close()
+else:
+    metrics, collectors = buildMetrics(devlist, dp_regex)
+    if args.save_metrics:
+        fp = open(args.save_metrics, "w")
+        json.dump((metrics, collectors), fp)
+        fp.close()
+
+metricsTime = "TIMER: building metrics took {} second".format(time.time()-timerStart)
+
+allQueries = buildQueries(metrics, downsample)
+
+now = int(time.time())
+endTime = now - (now % (downsampleMinutes * 60))
+startTime = endTime - timespan
+endTime -= 1
+
+(notExists, noData, noRecent, violations) = ([], [], [], {})
+numQueries = numMetrics = querySecs = processSecs = 0
+for queries in [allQueries[i:i + args.chunksize] for i in xrange(0, len(allQueries), args.chunksize)]:
+    numMetrics += len(queries)
+    numQueries += 1
+    timerStart = time.time()
+    data = {"start":int(startTime*1000), "end":int(endTime*1000), "returnset":"EXACT", "queries":queries}
+    results = post(URL, data=json.dumps(data), verify=False, headers=headers)
+    querySecs += time.time()-timerStart
+    log.debug("1-query: %s", time.time()-timerStart)
+    timerStart = time.time()
+    # FIXME: make this more readable 
+    (chunkNotExists, chunkNoData, chunkNoRecent, chunkViolations) = processResults(results, queries, limit, modes)
+    processSecs += time.time() - timerStart
+    notExists.extend(chunkNotExists)
+    noData.extend(chunkNoData)
+    noRecent.extend(chunkNoRecent)
+    violations.update(chunkViolations)
+
+processTime = "TIMER: processing results took {} seconds".format(processSecs)
+queryTime = "TIMER: Metric queries took {} seconds".format(querySecs)
+
+if not args.quiet:
+    if args.alertOnNotExists:
+        for metric in notExists:
+            log.info("DP {} has never been collected for any object".format(metric))
+    for metric in noData:
+        log.info("DP {} had no data in timespan for any object".format(metric))
+    for metric in noRecent:
+        log.info("DP|OBJECT {} had no data in the last bucket".format(metric))
+    for metric, tags in violations.iteritems():
+        devid, dpname = metric.split('/')
+        for tag, (violated, mode) in tags.iteritems():
+            for (timestamp, value) in violated:
+                log.info("DP {} ({}) on object {} violated: {} !~= {} at {}".format(
+                          metric, collectors.get(devid, 'UNKNOWN'), tag, value, mode, tsToString(timestamp)
+                          ))
+
+if args.csv_output:
+    fd = open(args.csv_output, "w")
+    fd.write("devid, collector, metric, dpname, tag, mode, value, loss, pct_loss, timestamp\n")
+    for metric, tags in violations.iteritems():
+        devid, dpname = metric.split('/')
+        collector = collectors.get(devid, 'UNKNOWN')
+        for tag, (violated, mode) in tags.iteritems():
+            for (timestamp, value) in violated:
+                fd.write(",".join((devid, collector, metric, dpname, tag, str(mode), str(value), str(abs(mode-value)), str(float(abs(mode-value))/float(mode)), tsToString(timestamp))) + "\n")
+
+
+
+log.debug("Time of first query: {}".format(tsToString(now)))
+log.debug("Start time of queries: {}".format(tsToString(startTime)))
+log.debug("End time of queries: {}".format(tsToString(endTime)))
+
+log.critical("Number of devices queried: {}".format(numDevs))
+log.critical("Number of metrics queried: {}".format(numMetrics))
+log.critical("Number of queries sent: {}".format(numQueries))
+
+log.critical(metricsTime)
+log.critical(queryTime)
+log.critical(processTime)
+
+log.critical("Metrics for which we have never collected data: {}".format(len(notExists)))
+log.critical("Metrics for which there was no data in the entire time span: {}".format(len(noData)))
+log.critical("Metrics for which the count of datapoints in at least one bucket was too far from the norm: {}".format(len(violations)))
+log.critical("Devices/components for which a count of datapoints in at least one bucket was too far from the norm: {}".format(len(set([xx for yy in violations.values() for xx in yy]))))
+log.critical("Metric buckets for which there was no data in the most recent complete time bucket: {}".format(len(noRecent)))
+
+

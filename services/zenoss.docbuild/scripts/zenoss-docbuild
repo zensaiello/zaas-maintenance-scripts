@@ -1,0 +1,66 @@
+#!/bin/sh
+# chkconfig: 2345 80 30
+
+source /etc/zenoss-docbuild.conf
+
+start() {
+    status > /dev/null
+    if [ $? -eq 0 ] ; then
+        echo "Already running"
+        exit 1
+    fi
+    echo "Zenoss docbuild starting..."
+    if [ -f $ZENOSS_DOCBUILD_USER ] ; then
+        chown $ZENOSS_DOCBUILD_USER $ZENOSS_DOCBUILD_SESSION_PATH
+    fi
+    sudo -u $ZENOSS_DOCBUILD_USER /usr/bin/zenoss-docbuild.py \
+        $ZENOSS_DOCBUILD_HOST \
+        $ZENOSS_DOCBUILD_PORT \
+        $ZENOSS_DOCBUILD_SESSION_PATH \
+        $ZENOSS_DOCBUILD_GITHUB_CLIENT_ID \
+        $ZENOSS_DOCBUILD_GITHUB_CLIENT_SECRET &
+    echo $! > $ZENOSS_DOCBUILD_PIDFILE
+}
+
+stop() {
+    echo "Zenoss docbuild stopping..."
+    if [ -f $ZENOSS_DOCBUILD_PIDFILE ] ; then
+        kill `cat $ZENOSS_DOCBUILD_PIDFILE`
+        rm $ZENOSS_DOCBUILD_PIDFILE
+    fi
+}
+
+status() {
+    if [ -f $ZENOSS_DOCBUILD_PIDFILE ] ; then
+        pid=`cat $ZENOSS_DOCBUILD_PIDFILE`
+        ps -p $pid > /dev/null 2>&1
+        if [ $? -eq 0 ] ; then
+            echo "Running (pid $pid)"
+            return 0
+        fi
+    fi
+
+    echo "Not running"
+    return 1
+}
+
+case $1 in 
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart)
+        stop
+        start
+        ;;
+    status)
+        status
+        exit $?
+        ;;
+    *)
+        echo "Usage: $0 <start|stop|restart>"
+        exit 1
+esac
+
