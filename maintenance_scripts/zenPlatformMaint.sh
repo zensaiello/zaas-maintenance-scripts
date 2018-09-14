@@ -74,45 +74,62 @@ while (( "$#" )); do
 done
 # set positional arguments in their proper place
 eval set -- "$PARAMS"
-scriptDIR=`echo "$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )" | /bin/sed 's/libexec/bin/'`
 
-cd $scriptDIR
+if [ -z "${topSD}" ] ; then 
+    sd=$(echo "$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )")
+    source ${sd}/../setScriptEnv.sh
+fi 
+
 if [ ! -z "$doBackup" ] ; then
-    #TODO: Add service's 'serviced-backupprune' script
-    if [ ! -z "$infoLog" ] ; then echo "Running backup step: zenbatchdump..."; fi
-    ./zenbatchdump.sh
-    #TODO: Would also be nice to perform event triggers & notifications export
+    #
+    rm -fR ${topSD}/export_*
+    if [ ! -z "$infoLog" ] ; then echo "Running backup step: serviced-backupprune..."; fi
+    ${svcsSD}/serviced-backupprune
+    if [ ! -z "$infoLog" ] ; then echo "Running backup step: zenBatchDump..."; fi
+    ${zaasSD}/zenBatchDump.py
+    if [ ! -z "$infoLog" ] ; then echo "Running backup step: zenTransformDump..."; fi
+    ${zaasSD}/zenTransformDump.py
+    if [ ! -z "$infoLog" ] ; then echo "Running backup step: zenTrigDump..."; fi
+    ${zaasSD}/zenTrigDump.py
+    #
+    dumpD=`ls -d ${topSD}/export_*`
+    dumpD=`basename "$dumpD"`
+    cd "${topSD}"
+    tar cfz "${SERVICED_BACKUPS_PATH}/${dumpD}.tgz" "${dumpD}"
+    if [ $? -eq 0 ] ; then
+        rm -fR "${topSD}/${dumpD}"
+    fi
     if [ ! -z "$infoLog" ] ; then echo "Running backup step: zenbackup..."; fi
-    ./zenbackup.sh
+    ${zaasSD}/zenbackup.sh
 fi
 if [ ! -z "$doFstrim" ] ; then
     if [ ! -z "$infoLog" ] ; then echo "Running fstrim..."; fi
-    ./fstrim.sh
+    ${zaasSD}/fstrim.sh
 fi
 if [ ! -z "$doZenossdbpack" ] ; then
     if [ ! -z "$infoLog" ] ; then echo "Running zenossdbpack..."; fi
-    ./toolboxscans.sh "zenossdbpack"
+    ${zaasSD}/toolboxscans.sh "zenossdbpack"
     if [[ $? -ne 0 ]]; then
         exit 1
     fi
 fi
 if [ ! -z "$doZodbscan" ] ; then
     if [ ! -z "$infoLog" ] ; then echo "Running zodbscan..."; fi
-    ./toolboxscans.sh "zodbscan"
+    ${zaasSD}/toolboxscans.sh "zodbscan"
     if [[ $? -ne 0 ]]; then
         exit 1
     fi
 fi
 if [ ! -z "$dozenRelationscan" ] ; then
     if [ ! -z "$infoLog" ] ; then echo "Running zenrelationscan..."; fi
-    ./toolboxscans.sh "zenrelationscan"
+    ${zaasSD}/toolboxscans.sh "zenrelationscan"
     if [[ $? -ne 0 ]]; then
         exit 1
     fi
 fi
 if [ ! -z "$dozenCatalogscan" ] ; then
     if [ ! -z "$infoLog" ] ; then echo "Running zencatalogscan..."; fi
-    ./toolboxscans.sh "zencatalogscan"
+    ${zaasSD}/toolboxscans.sh "zencatalogscan"
     if [[ $? -ne 0 ]]; then
         exit 1
     fi

@@ -13,13 +13,10 @@ if [ ! -f "${apiSD}/zenApiCli.py" ]; then
     exit
 fi
 
-IPADDR=$(hostname -i)
-TARGET=$(hostname -s)
-DEVICE=$("${apiSD}/zenApiCli.py" -r DeviceRouter -m getDevices -d keys="['name','ipAddress']",params="{'ipAddress': '${IPADDR}'}" -x result.devices.0.name | cut -d":" -f2)
 COMPONENT="FSTrim"
 
-UUID=$("${apiSD}/zenApiCli.py" -r EventsRouter -m add_event -d summary="${COMPONENT}",component="${COMPONENT}",device="${DEVICE}",severity=3,evclass="/Cmd",evclasskey=""  -x uuid | cut -d":" -f2)
+UUID=$("${apiSD}/zenApiCli.py" -r EventsRouter -m add_event -d summary="${COMPONENT} job has started.",component="${COMPONENT}",device="${DEVICE}",severity=2,evclass="/Cmd",evclasskey=""  -x uuid | cut -d":" -f2)
 OUTPUT=$(/usr/sbin/fstrim -av)
 
 sleep 5
-CLEAR=$("${apiSD}/zenApiCli.py" -r EventsRouter -m add_event -d summary="${COMPONENT} job has completed for ${TARGET}. Results: ${OUTPUT}",component="${COMPONENT}",device="${DEVICE}",severity=0,evclass="/Cmd",evclasskey="${UUID}")
+CLEAR=$("${apiSD}/zenApiCli.py" -r EventsRouter -m add_event -d summary="${COMPONENT} job completed.",message="Results: ${OUTPUT}",component="${COMPONENT}",device="${DEVICE}",severity=0,evclass="/Cmd",evclasskey="${UUID}")

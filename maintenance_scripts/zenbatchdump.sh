@@ -4,46 +4,25 @@
 # Zenoss 5x batch dump
 #
 
-# Add zenoss_api function to script
-cd /opt/zaas/maintenance/scripts
-
-if [[ -f zenoss_json.sh ]]; then
-    source ./zenoss_json.sh
-else
-    echo "Unable to find zenoss_json.sh. Script will exit."
+if [ -z "${topSD}" ] ; then 
+    sd=$(echo "$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )")
+    source ${sd}/../setScriptEnv.sh
+fi 
+if [ ! -f "${apiSD}/zenApiCli.py" ]; then
+    echo "Unable to find '${apiSD}/zenApiCli.py'. Script will exit."
     exit
 fi
 
-# Declare variables
-TARGET=$(hostname -s)
-SRC_DIR="/opt/serviced/var/backups"
-LOG_DIR="$SRC_DIR/log"
-DOCKER_SRC_DIR="/mnt/pwd"
-IPADDR=$(hostname -i)
-DEVICE=$(getZenossDeviceByIP $IPADDR)
-PRODUCTIONSTATE=$(getZenossProductionState "$IPADDR")
 COMPONENT="zenbatchdump"
 
-# Make sure log directory exists
-if [[ ! -d $LOG_DIR ]]; then
-    mkdir $LOG_DIR
-    chmod 777 $LOG_DIR
-fi
-
 # Run zenbatchdump
-cd $SRC_DIR
-UUID=$(writeZenossInfoEvent "$DEVICE" "$COMPONENT" "$COMPONENT job has started for $TARGET.")
-BACKUP="zenbatchdump-$(date +\%Y\%m\%d).tgz"
-LOG="zenbatchdump-cron-$(date +\%Y\%m\%d).log"
-serviced service shell zope su -c "source ~zenoss/.bashrc;/opt/zenoss/bin/zenbatchdump --outFile=$DOCKER_SRC_DIR/$BACKUP" > $LOG_DIR/$LOG 2>&1 - zenoss
-sleep 5
+UUID=$("${apiSD}/zenApiCli.py" -r EventsRouter -m add_event -d summary="${COMPONENT} job has started.",component="${COMPONENT}",device="${DEVICE}",severity=2,evclass="/Cmd",evclasskey=""  -x uuid | cut -d":" -f2)
+FILENAME="zenbatchdump-$(date +\%Y\%m\%d).json"
+err=`"${apiSD}/zenApiCli.py" -t 600 -r DeviceDumpLoadRouter -m exportDevices -x result.data 1>"${SERVICED_BACKUPS_PATH}/${FILENAME}"`
+rCode=$?
 
-SIZE=$(du -k $SRC_DIR/$BACKUP | cut -f1)
-
-# Check if backup exists and is larger than 0B
-if [[ -f "$SRC_DIR/$BACKUP" ]] && [[ $SIZE -gt 0 ]]; then
-    clearZenossEvent "$DEVICE" "$COMPONENT" "$COMPONENT job has completed successfully for $TARGET." "$UUID"
-else
-    clearZenossEvent "$DEVICE" "$COMPONENT" "$COMPONENT job has failed for $TARGET." "$UUID"
-    writeZenossWarningEvent "$DEVICE" "$COMPONENT" "$COMPONENT job failed for $TARGET. See logs for details."
+# API zenbatchdump work ?
+EVT=$("${apiSD}/zenApiCli.py" -r EventsRouter -m add_event -d summary="${COMPONENT} job has completed",component="${COMPONENT}",device="${DEVICE}",severity=0,evclass="/Cmd",evclasskey="${UUID}")
+if [ ${rCode} -ne 0 ]; then
+    EVT=$("${apiSD}/zenApiCli.py" -r EventsRouter -m add_event -d summary="${COMPONENT} job has failed",component="${COMPONENT}",device="${DEVICE}",severity=4,evclass="/Cmd",evclasskey="${UUID}")
 fi
